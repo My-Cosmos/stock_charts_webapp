@@ -1,0 +1,29 @@
+{
+  "2025-09-05": {
+    "tags": ["nifty", "market", "bullish"],
+    "descriptions": [
+      "Strong bullish day with high volume",
+      "Market opened higher and maintained momentum"
+    ],
+    "summaries": [
+      "Nifty opened at 20,500",
+      "Closed near day's high at 20,800"
+    ]
+  },
+  "2025-09-04": {
+    "tags": ["nifty", "market", "bearish"],
+    "descriptions": [
+      "Market pulled back after previous gains",
+      "Volume slightly lower than average"
+    ],
+    "summaries": [
+      "Nifty opened at 20,400",
+      "Closed lower at 20,200"
+    ]
+  },
+  "2025-09-03": {
+    "tags": ["nifty", "market", "bullish"],
+    "descriptions": [],
+    "summaries": []
+  }
+}

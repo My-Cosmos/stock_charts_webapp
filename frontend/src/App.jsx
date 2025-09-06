@@ -2,102 +2,110 @@ import { useEffect, useState } from "react";
 
 function App() {
   const [charts, setCharts] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [symbol, setSymbol] = useState("nifty"); // default
+  const symbols = ["nifty", "sensex", "banknifty", "all"];
 
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/charts/nifty")
-      .then(res => res.json())
-      .then(data => setCharts(data))
-      .catch(err => console.error("Error fetching charts:", err));
-  }, []);
+    const fetchCharts = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`http://127.0.0.1:8000/charts/${symbol}`);
+        const data = await res.json();
+        setCharts(data);
+      } catch (err) {
+        console.error("Error fetching charts:", err);
+        setCharts({});
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCharts();
+  }, [symbol]);
 
-  // Sort dates newest first
-  const sortedDates = Object.keys(charts).sort((a, b) => new Date(b) - new Date(a));
+  // helper: render a single-symbol block
+  const renderSingleSymbolBlock = (date, data) => (
+    <div key={date} className="bg-white p-4 rounded-lg shadow">
+      <h2 className="text-xl font-semibold mb-3">{date}</h2>
+      {data.overview && (
+        <img
+          src={`http://127.0.0.1:8000${data.overview}`}
+          alt={`Overview ${date}`}
+          className="w-full rounded mb-3"
+        />
+      )}
+      {data.tags?.length > 0 && (
+        <p className="text-sm text-gray-600 mb-2">
+          <strong>Tags:</strong> {data.tags.join(", ")}
+        </p>
+      )}
+      {data.descriptions?.map((desc, idx) => (
+        <p key={idx} className="text-sm">• {desc}</p>
+      ))}
+    </div>
+  );
+
+  if (loading) {
+    return <div className="p-6">Loading charts...</div>;
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <h1 className="text-3xl font-bold mb-6 text-center">📊 Nifty Chart Timeline</h1>
+    <div className="max-w-5xl mx-auto p-6">
+      <h1 className="text-2xl font-bold mb-6">📊 Chart Timeline</h1>
 
-      {sortedDates.length === 0 && (
-        <p className="text-gray-500 text-center">No charts found</p>
-      )}
+      {/* Symbol Selector */}
+      <div className="flex gap-4 mb-6">
+        {symbols.map((sym) => (
+          <button
+            key={sym}
+            onClick={() => setSymbol(sym)}
+            className={`px-4 py-2 rounded-lg ${
+              symbol === sym
+                ? "bg-blue-600 text-white"
+                : "bg-gray-200 text-gray-800"
+            }`}
+          >
+            {sym.toUpperCase()}
+          </button>
+        ))}
+      </div>
 
+      {/* Timeline */}
       <div className="space-y-6">
-        {sortedDates.map((date) => {
-          const data = charts[date];
-          if (!data) return null;
-
-          const overview = data.overview || null;
-          const detailed = data.detailed || [];
-          const tags = data.tags || [];
-          const descriptions = data.descriptions || [];
-          const summaries = data.summaries || [];
-
-          return (
-            <div key={date} className="bg-white shadow-md rounded-2xl p-4 border border-gray-200">
-              <h2 className="text-xl font-semibold mb-2">{date}</h2>
-
-              {/* Tags */}
-              {tags.length > 0 && (
-                <div className="mb-2 flex flex-wrap gap-2">
-                  {tags.map((tag, idx) => (
-                    <span
-                      key={idx}
-                      className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm"
-                    >
-                      {tag}
-                    </span>
+        {Object.entries(charts).map(([date, data]) => {
+          if (symbol === "all") {
+            // ✅ multiple symbols per date
+            return (
+              <div key={date} className="bg-white p-4 rounded-lg shadow">
+                <h2 className="text-xl font-semibold mb-3">{date}</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {Object.entries(data).map(([sym, symData]) => (
+                    <div key={sym} className="border p-2 rounded">
+                      <h3 className="font-bold mb-2">{sym.toUpperCase()}</h3>
+                      {symData?.overview && (
+                        <img
+                          src={`http://127.0.0.1:8000${symData.overview}`}
+                          alt={`${sym} ${date}`}
+                          className="w-full rounded mb-2"
+                        />
+                      )}
+                      {symData?.tags?.length > 0 && (
+                        <p className="text-xs text-gray-600 mb-2">
+                          Tags: {symData.tags.join(", ")}
+                        </p>
+                      )}
+                      {symData?.descriptions?.map((d, i) => (
+                        <p key={i} className="text-xs">• {d}</p>
+                      ))}
+                    </div>
                   ))}
                 </div>
-              )}
-
-              {/* Descriptions */}
-              {descriptions.length > 0 && (
-                <ul className="list-disc list-inside text-gray-600 mb-3">
-                  {descriptions.map((desc, idx) => (
-                    <li key={idx}>{desc}</li>
-                  ))}
-                </ul>
-              )}
-
-              {/* Overview */}
-              {overview && (
-                <div className="mb-3">
-                  <p className="text-gray-600 mb-1 font-medium">Overview</p>
-                  <img
-                    src={`http://127.0.0.1:8000${overview}`}
-                    alt={`Overview ${date}`}
-                    className="rounded-xl shadow-sm max-h-64 w-full object-contain"
-                  />
-                </div>
-              )}
-
-              {/* Detailed */}
-              {detailed.length > 0 && (
-                <details className="mt-2">
-                  <summary className="cursor-pointer text-blue-600 hover:underline font-medium">
-                    Show Detailed Charts ({detailed.length})
-                  </summary>
-                  <div className="grid grid-cols-2 gap-4 mt-3">
-                    {detailed.map((chart, idx) => (
-                      <img
-                        key={idx}
-                        src={`http://127.0.0.1:8000${chart}`}
-                        alt={`Detailed ${date}-${idx}`}
-                        className="rounded-xl shadow-sm max-h-64 w-full object-contain"
-                      />
-                    ))}
-                  </div>
-                </details>
-              )}
-
-              {/* Summaries */}
-              {summaries.length > 0 && (
-                <div className="mt-2 text-gray-700 text-sm">
-                  <strong>Summary:</strong> {summaries.join("; ")}
-                </div>
-              )}
-            </div>
-          );
+              </div>
+            );
+          } else {
+            // ✅ normal single symbol
+            return renderSingleSymbolBlock(date, data);
+          }
         })}
       </div>
     </div>

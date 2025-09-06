@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
+import os
 import json
 
 app = FastAPI()
@@ -9,60 +10,78 @@ app = FastAPI()
 # --- CORS ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # allow your frontend
+    allow_origins=["*"],  # allow frontend
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# --- Directories ---
+# --- Static folders ---
 uploads_dir = Path(__file__).parent / "uploads"
-overview_dir = uploads_dir / "overview"
-detailed_dir = uploads_dir / "detailed"
+symbols = ["nifty", "sensex", "banknifty"]
 
-overview_dir.mkdir(parents=True, exist_ok=True)
-detailed_dir.mkdir(parents=True, exist_ok=True)
+# Make sure folders exist
+for sym in symbols:
+    (uploads_dir / sym / "overview").mkdir(parents=True, exist_ok=True)
+    (uploads_dir / sym / "detailed").mkdir(parents=True, exist_ok=True)
+    # Optional: create a metadata JSON if not exists
+    metadata_file = uploads_dir / f"{sym}_metadata.json"
+    if not metadata_file.exists():
+        with open(metadata_file, "w") as f:
+            json.dump({}, f)
 
-app.mount("/uploads/overview", StaticFiles(directory=overview_dir), name="overview")
-app.mount("/uploads/detailed", StaticFiles(directory=detailed_dir), name="detailed")
-
-# --- Load metadata.json if it exists ---
-metadata_file = Path(__file__).parent / "metadata.json"
-if metadata_file.exists():
-    with open(metadata_file, "r", encoding="utf-8") as f:
-        metadata = json.load(f)
-else:
-    metadata = {}  # fallback if no file
+# Mount static files
+for sym in symbols:
+    app.mount(f"/uploads/{sym}/overview", StaticFiles(directory=uploads_dir / sym / "overview"), name=f"{sym}_overview")
+    app.mount(f"/uploads/{sym}/detailed", StaticFiles(directory=uploads_dir / sym / "detailed"), name=f"{sym}_detailed")
 
 
-@app.get("/charts/nifty")
-def get_nifty_charts():
+def load_metadata(symbol):
+    metadata_file = uploads_dir / f"{symbol}_metadata.json"
+    if metadata_file.exists():
+        with open(metadata_file, "r") as f:
+            return json.load(f)
+    return {}
+
+def build_charts_for_symbol(symbol):
+    overview_dir = uploads_dir / symbol / "overview"
+    detailed_dir = uploads_dir / symbol / "detailed"
+    metadata = load_metadata(symbol)
+    
     charts = {}
-
-    # Collect all unique dates from files
     dates = set()
-    dates.update(f.stem for f in overview_dir.glob("*.png"))
-    dates.update(f.stem for f in detailed_dir.glob("*.png"))
-    dates.update(metadata.keys())  # also include dates only in metadata
+    if overview_dir.exists():
+        dates.update(f.stem for f in overview_dir.glob("*.png"))
+    if detailed_dir.exists():
+        dates.update(f.stem for f in detailed_dir.glob("*.png"))
 
-    for date_str in sorted(dates):
-        # Overview
+    for date_str in sorted(dates, reverse=True):  # newest first
         overview_file = overview_dir / f"{date_str}.png"
-        detailed_files = list(detailed_dir.glob(f"{date_str}*.png"))
+        detailed_files = list(detailed_dir.glob(f"{date_str}.png"))
 
-        overview_path = f"/uploads/overview/{overview_file.name}" if overview_file.exists() else None
+        overview_path = f"/uploads/{symbol}/overview/{date_str}.png" if overview_file.exists() else None
         if not overview_path and detailed_files:
-            overview_path = f"/uploads/detailed/{detailed_files[0].name}"
+            overview_path = f"/uploads/{symbol}/detailed/{detailed_files[0].name}"
 
         charts[date_str] = {
-            "overview": overview_path or metadata.get(date_str, {}).get("overview"),
-            "detailed": (
-                [f"/uploads/detailed/{f.name}" for f in detailed_files]
-                if detailed_files else metadata.get(date_str, {}).get("detailed", [])
-            ),
+            "overview": overview_path,
+            "detailed": [f"/uploads/{symbol}/detailed/{f.name}" for f in detailed_files],
             "tags": metadata.get(date_str, {}).get("tags", []),
             "descriptions": metadata.get(date_str, {}).get("descriptions", []),
             "summaries": metadata.get(date_str, {}).get("summaries", [])
         }
-
     return charts
+
+
+@app.get("/charts/{symbol}")
+def get_charts(symbol: str):
+    if symbol.lower() == "all":
+        # Build combined JSON for all symbols
+        all_charts = {}
+        for sym in symbols:
+            all_charts[sym] = build_charts_for_symbol(sym)
+        return all_charts
+    elif symbol.lower() in symbols:
+        return build_charts_for_symbol(symbol.lower())
+    else:
+        return {"error": "Invalid symbol"}

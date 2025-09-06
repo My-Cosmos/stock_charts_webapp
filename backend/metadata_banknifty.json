@@ -1,9 +1,5 @@
 {
   "2025-09-05": {
-    "overview": "/uploads/overview/2025-09-05.png",
-    "detailed": [
-      "/uploads/detailed/2025-09-05.png"
-    ],
     "tags": ["nifty", "market", "bullish"],
     "descriptions": [
       "Strong bullish day with high volume",
@@ -15,10 +11,6 @@
     ]
   },
   "2025-09-04": {
-    "overview": "/uploads/overview/2025-09-05.png",
-    "detailed": [
-      "/uploads/detailed/2025-09-05.png"
-    ],
     "tags": ["nifty", "market", "bearish"],
     "descriptions": [
       "Market pulled back after previous gains",
@@ -30,10 +22,6 @@
     ]
   },
   "2025-09-03": {
-    "overview": "/uploads/detailed/2025-09-05.png",
-    "detailed": [
-      "/uploads/detailed/2025-09-05.png"
-    ],
     "tags": ["nifty", "market", "bullish"],
     "descriptions": [],
     "summaries": []
